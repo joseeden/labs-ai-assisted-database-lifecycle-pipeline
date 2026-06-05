@@ -2,7 +2,7 @@
 
 
 
-# AI-Assisted Database Lifecycle Pipeline 
+# Lab: AI-Assisted Database Lifecycle Pipeline 
 
 ## Overview
 
@@ -612,69 +612,101 @@ Finally, the `join` query proves the database can dynamically link these separat
 
 Database modifications, schema migrations, and validation logic should pass through automated checks before deployment. This prevents bad code or corrupt data from ever reaching production.
 
-As an example, we can use GitHub Actions to create a CI pipeline that runs the validation suite automatically on every pull request.
+As an example, we can use GitHub Actions to create a CI pipeline that runs the validation suite automatically on every pull request. For this lab, we have two workflow files:
 
-Sample workflow file: `.github/workflows/db-validation.yml`:
-
-```yaml
-name: Database Validation Suite
-
-on:
-  pull_request:
-    branches: [ main ]
-
-jobs:
-  validate-db:
-    runs-on: ubuntu-latest
-
-    services:
-      postgres_db:
-        image: postgres:15
-        env:
-          POSTGRES_DB: tourism
-          POSTGRES_PASSWORD: postgres
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Setup Python Environment
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.10"
-
-      - name: Install Dependencies
-        run: |
-          pip install psycopg2-binary
-
-      - name: Initialize V1 Database Schema
-        run: python scripts/setup_schema.py
-
-      - name: Verify V1 Schema Configuration
-        run: python scripts/verify_schema.py
-
-      - name: Seed Initial Datasets
-        run: python scripts/seed_data.py
-
-      - name: Execute Duplicate Detection Quality Check
-        run: python scripts/verify_data_duplicates.py
-
-      - name: Test Query Performance and Index Optimization
-        run: python scripts/optimize_performance.py
-
-      - name: Deploy V2 Relational Database Schema
-        run: python scripts/setup_schema_v2.py
-
-      - name: Execute Relational Data Migration
-        run: python scripts/migrate_to_v2.py
-
-      - name: Validate Relational Data Integrity
-        run: python scripts/verify_migration.py
+```bash
+.github/workflows
+├── db-validation-skip-errors.yml  
+└── db-validation.yml               ## we'll use this one first
 ```
+
+To trigger CI properly on a pull request, we must first create a new branch from our repo. 
+
+```bash
+git checkout -b ci-test
+```
+
+Confirm that the new branch is created and that you are on the new branch:
+
+```bash
+git branch
+```
+
+Output:
+
+```bash
+* ci-test
+  master
+```
+
+Commit the changes
+
+```bash
+git commit -m "Trigger CI pipeline" 
+```
+
+Push branch:
+
+```bash
+git push origin ci-test
+```
+
+Go to the Github repo and verify that the new branch is there. If yes, switch to the new branch.
+
+<div class='img-center'>
+
+![](/img/docs/Screenshot2026-06-06014841.png)
+
+</div>
+
+Checking the **Actions** tab, we should see the workflows are triggered when we pushed the changes. The build shows it failed currently.
+
+<div class='img-center'>
+
+![](/img/docs/Screenshot2026-06-06015018.png)
+
+</div>
+
+After opening the workflow, we can see that the failure happened when detecting duplicates. This is expected since we have duplicate data in our seed dataset and the duplicate detection step is designed to fail if duplicates are found.
+
+<div class='img-center'>
+
+![](/img/docs/Screenshot2026-06-06015303.png)
+
+</div>
+
+To run the fix without modifying the original code, we can create a new branch from `ci-test` and create a second workflow file (`.github/workflows/db-validation-skip-errors.yml`) that will skip the duplicate detection step. 
+
+```bash
+git branch  ## make sure you are on ci-test branch
+git checkout -b ci-test-clean
+```
+
+Verify that the new branch is created and that you are on the new branch:
+
+```bash
+$ git branch
+
+  ci-test
+* ci-test-clean
+  master
+```
+
+Commit and push the changes to the new branch:
+
+```bash
+git add .
+git commit -m "Setup multi-phase data validation experiment workflow"
+git push origin ci-test-clean
+```
+
+Back in Github, make sure you switch to the `ci-test-clean` branch:
+
+<div class='img-center'>
+
+![](/img/docs/Screenshot2026-06-06021233.png)
+
+</div>
+
+
+Check the **Actions** tab again. You should see that the new workflow is triggered and this time it should pass successfully since we are skipping the duplicate detection step.

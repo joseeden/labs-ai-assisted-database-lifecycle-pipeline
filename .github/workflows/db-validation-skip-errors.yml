@@ -1,0 +1,85 @@
+---
+name: Database Validation Suite
+
+on:
+  push:
+    branches: [ci-test-clean]
+  pull_request:
+    branches: [main]
+
+jobs:
+  validate-db:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres_db:
+        image: postgres:15
+        env:
+          POSTGRES_DB: tourism
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Python Environment
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+
+      - name: Install Dependencies
+        run: pip install psycopg2-binary
+
+      - name: Initialize V1 Database Schema
+        run: python scripts/setup_schema.py
+
+      # --- PHASE 1: DEMONSTRATE FAILURE (DIRTY DATA) ---
+
+      - name: Seed Historical Datasets with Duplicates
+        run: python scripts/seed_data.py
+
+      - name: Execute Duplicate Detection Quality Check (Expected Failure)
+        id: duplicate_check_v1
+        continue-on-error: true
+        run: python scripts/verify_data_duplicates.py
+
+      # --- PHASE 2: DEMONSTRATE FIX (CLEAN DATA) ---
+
+      - name: Wipe Database for Clean Run
+        run: |
+          python -c "
+          import psycopg2
+          conn = psycopg2.connect('dbname=tourism user=postgres password=postgres host=localhost port=5432')
+          cur = conn.cursor()
+          cur.execute('TRUNCATE TABLE activity_events;')
+          conn.commit()
+          cur.close()
+          conn.close()
+          "
+
+      - name: Seed Clean Datasets
+        run: python scripts/seed_data_clean.py
+
+      - name: Re-run Duplicate Detection Quality Check (Expected Pass)
+        run: python scripts/verify_data_duplicates.py
+
+      # --- PHASE 3: PROCEED WITH OPTIMIZATION & MIGRATION ---
+
+      - name: Test Query Performance and Index Optimization
+        run: python scripts/optimize_performance.py
+
+      - name: Deploy V2 Relational Database Schema
+        run: python scripts/setup_schema_v2.py
+
+      - name: Execute Relational Data Migration
+        run: python scripts/migrate_to_v2.py
+
+      - name: Validate Relational Data Integrity
+        run: python scripts/verify_migration.py
