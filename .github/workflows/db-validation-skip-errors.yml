@@ -43,7 +43,7 @@ jobs:
       # --- PHASE 1: DEMONSTRATE FAILURE (DIRTY DATA) ---
 
       - name: Seed Historical Datasets with Duplicates
-        run: python scripts/seed_data_v1_dirty.py
+        run: python scripts/seed_data.py
 
       - name: Execute Duplicate Detection Quality Check (Expected Failure)
         id: duplicate_check_v1

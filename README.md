@@ -700,14 +700,13 @@ git commit -m "Setup multi-phase data validation experiment workflow"
 git push origin ci-test-clean
 ```
 
-If we go to the **Pull requests** tab, we should see a notification that the `ci-test` branch has recent changes.
+Back in Github, make sure you switch to the `ci-test-clean` branch:
 
-Click **Compare & pull request** to create a new pull request.
+<div class='img-center'>
+
+![](/img/docs/Screenshot2026-06-06021233.png)
+
+</div>
 
 
-
-Provide a title and description for the pull request, then click **Create pull request**.
-
-
-
-After creating the pull request, we can see that the CI workflow is triggered again for the pull request.
+Check the **Actions** tab again. You should see that the new workflow is triggered and this time it should pass successfully since we are skipping the duplicate detection step.
