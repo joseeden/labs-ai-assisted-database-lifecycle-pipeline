@@ -2,7 +2,7 @@
 
 
 
-# AI-Assisted Database Lifecycle Pipeline 
+# Lab: AI-Assisted Database Lifecycle Pipeline 
 
 ## Overview
 
@@ -620,8 +620,8 @@ Sample workflow file: `.github/workflows/db-validation.yml`:
 name: Database Validation Suite
 
 on:
+  push:
   pull_request:
-    branches: [ main ]
 
 jobs:
   validate-db:
@@ -678,3 +678,71 @@ jobs:
       - name: Validate Relational Data Integrity
         run: python scripts/verify_migration.py
 ```
+
+**Note**: In actual implementation, it is recommended to run CI on specific branches instead of all branches to avoid unnecessary runs. Below is an example of a more targeted CI trigger configuration.
+
+```yaml
+on:
+  push:
+    branches:
+      - main
+      - develop
+      - "feature/**"
+
+  pull_request:
+    branches:
+      - main
+      - develop 
+```
+
+In our case, we'll just keep it simple and trigger on all pushes and pull requests for lab purposes.
+
+To trigger CI properly on a pull request, we must first create a new branch from our repo. 
+
+```bash
+git checkout -b ci-test
+```
+
+Confirm that the new branch is created and that you are on the new branch:
+
+```bash
+git branch
+```
+
+Output:
+
+```bash
+* ci-test
+  master
+```
+
+Create an empty commit:
+
+```bash
+git commit --allow-empty -m "Trigger CI pipeline" 
+```
+
+Push branch:
+
+```bash
+git push origin ci-test
+```
+
+Checking the **Actions** tab in Github, we should see the workflows are triggered on every push in all branches. 
+
+
+We can click into the workflow to see the stages of the pipeline.
+
+
+
+If we go to the **Pull requests** tab, we should see a notification that the `ci-test` branch has recent changes.
+
+Click **Compare & pull request** to create a new pull request.
+
+
+
+Provide a title and description for the pull request, then click **Create pull request**.
+
+
+
+After creating the pull request, we can see that the CI workflow is triggered again for the pull request.
