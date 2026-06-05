@@ -5,7 +5,7 @@ on:
   push:
     branches: [ci-test-clean]
   pull_request:
-    branches: [main]
+    branches: [master]
 
 jobs:
   validate-db:
