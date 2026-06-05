@@ -608,7 +608,7 @@ Based on the output, our data migration was a complete success.
 
 Finally, the `join` query proves the database can dynamically link these separate tables to reconstruct our original data smoothly on demand.
 
-## CI/CD And Data Safety
+## Automating the Lifecycle with CI
 
 Database modifications, schema migrations, and validation logic should pass through automated checks before deployment. This prevents bad code or corrupt data from ever reaching production.
 
@@ -709,4 +709,104 @@ Back in Github, make sure you switch to the `ci-test-clean` branch:
 </div>
 
 
-Check the **Actions** tab again. You should see that the new workflow is triggered and this time it should pass successfully since we are skipping the duplicate detection step.
+Check the **Actions** tab again. We should see that the new workflow is triggered and this time it should pass successfully since we are skipping the duplicate detection step.
+
+<div class='img-center'>
+
+![](/img/docs/Screenshot2026-06-06021549.png)
+
+</div>
+
+When the ci-test-clean branch runs, the automated pipeline processes the database through its complete lifecycle. Below are the key logs from the expanded steps showing exactly how the system behaves.
+
+1. **Seeding duplicate data and running the duplicate detection check.**
+
+    This phase proves our quality check can actively stop a deployment if duplicate records are detected, and then verifies that a clean dataset passes successfully. The verification engine caught the corrupted records from the dirty dataset. 
+
+    Because `continue-on-error` was active, it flagged the issue without stopping the run.
+
+    <div class='img-center'>
+
+    ![](/img/docs/Screenshot2026-06-06022851.png)
+
+    </div>
+
+2. **Seeding clean datasets and re-running the duplicate detection check.**
+
+    After wiping the database and using the unique dataset (no duplicates), the quality gate confirms the system is stable and safe to move forward.
+
+    <div class='img-center'>
+
+    ![](/img/docs/Screenshot2026-06-06022932.png)
+
+    </div>
+
+
+3. **Tuning the Database and Deploying the Migration.**
+
+    This step displays the database execution plan before and after optimization to prove the indexing strategy works.
+
+    The migration is successful and the database is now using the new normalized structure. The database engine successfully executed the migration DDL scripts, creating the structural tables without altering or dropping any existing legacy tables.
+
+    <div class='img-center'>
+    
+    ![](/img/docs/Screenshot2026-06-06023501.png)
+    
+    </div>
+    
+4. **Verifying the Migration.**
+
+    The final verification step confirms that the new normalized tables are populated correctly and that the relational join query can reconstruct the original data view without any issues.
+
+    <div class='img-center'>
+    
+    ![](/img/docs/Screenshot2026-06-06023610.png)
+    
+    </div>
+    
+
+If we go to the **Pull requests** tab, we should see notifications on the recent changes on the new branches.
+
+On the `ci-test` branch, click **Compare & pull request** to create a new pull request.
+
+<div class='img-center'>
+
+![](/img/docs/Screenshot2026-06-06023815.png)
+
+</div>
+
+Provide a title and description for the pull request, then click **Create pull request**.
+
+<div class='img-center'>
+
+![](/img/docs/Screenshot2026-06-06023917.png)
+
+</div>
+
+The pull request will show that the checks have failed for this branch due to the duplicate data issue, which is expected. We can simply ignore this and click **Close pull request.**
+
+**NOTE:** Do not merge this pull request.
+
+<div class='img-center'>
+
+![](/img/docs/Screenshot2026-06-06024116.png)
+
+</div>
+
+Go back to the **Pull requests** tab again and create another pull request for the `ci-test-clean` branch. This time, the checks should pass successfully since we fixed the duplicate data issue in this branch.
+
+Click the **Merge pull request** button to merge the changes into the main branch.
+
+<div class='img-center'>
+
+![](/img/docs/Screenshot2026-06-06024314.png)
+
+</div>
+
+Provide a commit description and click **Confirm merge**.
+
+<div class='img-center'>
+
+![](/img/docs/Screenshot2026-06-06024409.png)
+
+</div>
