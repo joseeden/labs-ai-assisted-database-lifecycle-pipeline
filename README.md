@@ -610,9 +610,13 @@ Finally, the `join` query proves the database can dynamically link these separat
 
 ## Automating the Lifecycle with CI
 
-Database modifications, schema migrations, and validation logic should pass through automated checks before deployment. This prevents bad code or corrupt data from ever reaching production.
+Database modifications, schema migrations, and validation logic must pass through automated checks before deployment to prevent bad code or corrupt data from reaching production.
 
-As an example, we can use GitHub Actions to create a CI pipeline that runs the validation suite automatically on every pull request. For this lab, we have two workflow files:
+### Using the Seed Data with Duplicates
+
+GitHub Actions allows us to create a continuous integration pipeline that runs the validation suite automatically on every pull request. 
+
+For this lab, we have two workflow files:
 
 ```bash
 .github/workflows
@@ -620,7 +624,7 @@ As an example, we can use GitHub Actions to create a CI pipeline that runs the v
 └── db-validation.yml               ## we'll use this one first
 ```
 
-To trigger CI properly on a pull request, we must first create a new branch from our repo. 
+To test the initial pipeline automation, create a new branch.
 
 ```bash
 git checkout -b ci-test
@@ -639,13 +643,13 @@ Output:
   master
 ```
 
-Commit the changes
+Commit the initial configuration changes to stage the experiment.
 
 ```bash
 git commit -m "Trigger CI pipeline" 
 ```
 
-Push branch:
+Push the branch to the remote repository.
 
 ```bash
 git push origin ci-test
@@ -667,7 +671,8 @@ Checking the **Actions** tab, we should see the workflows are triggered when we 
 
 </div>
 
-After opening the workflow, we can see that the failure happened when detecting duplicates. This is expected since we have duplicate data in our seed dataset and the duplicate detection step is designed to fail if duplicates are found.
+After opening the workflow, we can see that the failure happened when detecting duplicates. This is expected because the baseline seed dataset (`seed_data.py`)
+contains deliberate duplicates designed to trigger this data quality gate.
 
 <div class='img-center'>
 
@@ -675,55 +680,65 @@ After opening the workflow, we can see that the failure happened when detecting 
 
 </div>
 
-To run the fix without modifying the original code, we can create a new branch from `ci-test` and create a second workflow file (`.github/workflows/db-validation-skip-errors.yml`) that will skip the duplicate detection step. 
 
-```bash
-git branch  ## make sure you are on ci-test branch
-git checkout -b ci-test-clean
-```
+### Using the Clean Seed Data
 
-Verify that the new branch is created and that you are on the new branch:
+To isolate the data fix without modifying our original branch history, we can execute a recovery experiment on a secondary branch. 
 
-```bash
-$ git branch
+1. Create a second branch called `ci-test-clean`:
 
-  ci-test
-* ci-test-clean
-  master
-```
+    ```bash
+    git checkout -b ci-test-clean
+    ```
 
-Commit and push the changes to the new branch:
+2. Verify that the workspace has successfully switched to the clean test branch:
 
-```bash
-git add .
-git commit -m "Setup multi-phase data validation experiment workflow"
-git push origin ci-test-clean
-```
+    ```bash
+    $ git branch
 
-Back in Github, make sure you switch to the `ci-test-clean` branch:
+      ci-test
+    * ci-test-clean
+      master
+    ```
 
-<div class='img-center'>
+3. Ensure the second workflow file (`db-validation-multi-phase.yml`) uses the new branch. 
 
-![](/img/docs/Screenshot2026-06-06021233.png)
+    This workflow is configured to skip the duplicate detection step, log the anomaly, reset the storage layer, and ingest a clean dataset.
 
-</div>
+4. Stage, commit, and push the experimental pipeline files to the new branch:
+
+    ```bash
+    git add .
+    git commit -m "Setup multi-phase data validation experiment workflow"
+    git push origin ci-test-clean
+    ```
+
+5. Back in Github, switch to the `ci-test-clean` branch:
+
+    <div class='img-center'>
+
+    ![](/img/docs/Screenshot2026-06-06021233.png)
+
+    </div>
 
 
-Check the **Actions** tab again. We should see that the new workflow is triggered and this time it should pass successfully since we are skipping the duplicate detection step.
+6. Check the **Actions** tab again. 
 
-<div class='img-center'>
+    We should see that the new workflow is triggered and this time it should pass successfully since we are skipping the duplicate detection step.
 
-![](/img/docs/Screenshot2026-06-06021549.png)
+    <div class='img-center'>
 
-</div>
+    ![](/img/docs/Screenshot2026-06-06021549.png)
+
+    </div>
+
+### Detailed Phase Execution
 
 When the ci-test-clean branch runs, the automated pipeline processes the database through its complete lifecycle. Below are the key logs from the expanded steps showing exactly how the system behaves.
 
-1. **Seeding duplicate data and running the duplicate detection check.**
+1. **Running the Duplicate Detection Check**
 
-    This phase proves our quality check can actively stop a deployment if duplicate records are detected, and then verifies that a clean dataset passes successfully. The verification engine caught the corrupted records from the dirty dataset. 
-
-    Because `continue-on-error` was active, it flagged the issue without stopping the run.
+    The validation engine catches the corrupted records from the dirty dataset. Because the step is configured with a  `continue-on-error` attribute, it flags the problem without stopping the run.
 
     <div class='img-center'>
 
@@ -731,9 +746,9 @@ When the ci-test-clean branch runs, the automated pipeline processes the databas
 
     </div>
 
-2. **Seeding clean datasets and re-running the duplicate detection check.**
+2. **Storage Reset and Clean Ingestion**
 
-    After wiping the database and using the unique dataset (no duplicates), the quality gate confirms the system is stable and safe to move forward.
+    The pipeline purges the database tables and applies the unique seed dataset. The quality gate re-runs the check and confirms that the data is clean and safe for schema upgrades.
 
     <div class='img-center'>
 
@@ -742,11 +757,11 @@ When the ci-test-clean branch runs, the automated pipeline processes the databas
     </div>
 
 
-3. **Tuning the Database and Deploying the Migration.**
+3. **Query Profiling and DDL Upgrades**
 
     This step displays the database execution plan before and after optimization to prove the indexing strategy works.
 
-    The migration is successful and the database is now using the new normalized structure. The database engine successfully executed the migration DDL scripts, creating the structural tables without altering or dropping any existing legacy tables.
+    The pipeline then applies the DDL upgrades to deploy the normalized schema without altering legacy data.
 
     <div class='img-center'>
     
@@ -754,59 +769,78 @@ When the ci-test-clean branch runs, the automated pipeline processes the databas
     
     </div>
     
-4. **Verifying the Migration.**
+4. **Relational Integrity Check**
 
-    The final verification step confirms that the new normalized tables are populated correctly and that the relational join query can reconstruct the original data view without any issues.
+    The final verification step runs a relational join query across the separate tables. The output confirms that the application successfully resolves foreign keys and reconstructs the data views perfectly.
 
     <div class='img-center'>
     
     ![](/img/docs/Screenshot2026-06-06023610.png)
     
     </div>
-    
 
-If we go to the **Pull requests** tab, we should see notifications on the recent changes on the new branches.
 
-On the `ci-test` branch, click **Compare & pull request** to create a new pull request.
+### Verify the PR Guardrails
 
-<div class='img-center'>
+With both pipeline paths verified, we can observe how these automated quality gates protect the main branch during code review and merging workflows.
 
-![](/img/docs/Screenshot2026-06-06023815.png)
+1. Navigate to the **Pull Requests** tab to view the branch sync notifications.
 
-</div>
+2. Click **Compare & pull request** for the original `ci-test` branch.
 
-Provide a title and description for the pull request, then click **Create pull request**.
+    <div class='img-center'>
 
-<div class='img-center'>
+    ![](/img/docs/Screenshot2026-06-06023815.png)
 
-![](/img/docs/Screenshot2026-06-06023917.png)
+    </div>
 
-</div>
+3. Provide a title and description, then click **Create pull request**.
 
-The pull request will show that the checks have failed for this branch due to the duplicate data issue, which is expected. We can simply ignore this and click **Close pull request.**
+    <div class='img-center'>
 
-**NOTE:** Do not merge this pull request.
+    ![](/img/docs/Screenshot2026-06-06023917.png)
 
-<div class='img-center'>
+    </div>
 
-![](/img/docs/Screenshot2026-06-06024116.png)
+4. The pull request will show that the checks have failed due to the duplicate issue. 
 
-</div>
+    We can simply ignore this and click **Close pull request.**
 
-Go back to the **Pull requests** tab again and create another pull request for the `ci-test-clean` branch. This time, the checks should pass successfully since we fixed the duplicate data issue in this branch.
+    **NOTE:** Do not merge this pull request.
 
-Click the **Merge pull request** button to merge the changes into the main branch.
+    <div class='img-center'>
 
-<div class='img-center'>
+    ![](/img/docs/Screenshot2026-06-06024116.png)
 
-![](/img/docs/Screenshot2026-06-06024314.png)
+    </div>
 
-</div>
+6. Return to **Pull Requests** and open a new PR for the `ci-test-clean` branch
 
-Provide a commit description and click **Confirm merge**.
+    This time, the checks should pass successfully since we fixed the duplicate data issue in this branch.
 
-<div class='img-center'>
+7. Click **Merge pull request** to merge the changes into the main branch.
 
-![](/img/docs/Screenshot2026-06-06024409.png)
+    <div class='img-center'>
 
-</div>
+    ![](/img/docs/Screenshot2026-06-06024314.png)
+
+    </div>
+
+8.  Provide a commit description and click **Confirm merge**.
+
+    <div class='img-center'>
+
+    ![](/img/docs/Screenshot2026-06-06024409.png)
+
+    </div>
+
+9. Go back to **Actions** and confirm the merge triggered a build on the main branch.
+
+    <div class='img-center'>
+
+    ![](/img/docs/Screenshot2026-06-06024718.png)
+
+    </div>
+
+    Just like the `ci-test-clean` branch, the main branch also goes through the entire lifecycle and passes all validation steps without any issues.
+
