@@ -28,6 +28,7 @@ By running these stages inside an automated pipeline, any structural anomalies o
 
 The diagram below summarizes the database lifecycle from the Docker lab environment through validation, optimization, migration, and CI guardrails.
 
+
 <div class='img-center'>
 
 ![](/img/docs/project-ai-assisted-db-lifecycle-pipeline.png)
