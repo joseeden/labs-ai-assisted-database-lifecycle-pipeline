@@ -24,6 +24,16 @@ This lab provides an end-to-end sandbox and validation engine that simulates a r
 
 By running these stages inside an automated pipeline, any structural anomalies or duplicate data will immediately fail the build. This automated check prevents corrupt data structures from ever reaching a production environment.
 
+## Pipeline Diagram
+
+The diagram below summarizes the database lifecycle from the Docker lab environment through validation, optimization, migration, and CI guardrails.
+
+<div class='img-center'>
+
+![](/img/docs/project-ai-assisted-db-lifecycle-pipeline.png)
+
+</div>
+
 ## Project Setup
 
 For this lab, we will use a simple Postgres database and a Python application running in Docker to simulate real database workflows. 
@@ -843,4 +853,3 @@ With both pipeline paths verified, we can observe how these automated quality ga
     </div>
 
     Just like the `ci-test-clean` branch, the main branch also goes through the entire lifecycle and passes all validation steps without any issues.
-
